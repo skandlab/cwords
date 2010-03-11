@@ -1,0 +1,42 @@
+      # we are only interested in pos. maxrs scores, (analyzing up/down regulated seperately)
+      next if maxrs <= 0
+
+      pmaxrs_pos = StatArray.new
+      psum = 0
+      pstd = 0
+      pgreater = 0
+      perms.each_with_index do |psa,pidx|
+        prs = 0
+        prsa = [0]
+        pmaxrs = 0
+        psa.each do |i|
+          prs += score[i]-smean
+          prsa << prs
+          pmaxrs = prs if prs.abs > pmaxrs.abs
+        end
+        # the permuted scores are approx. symmetric around 0
+        # compute statistic on-line
+        pmaxrs_pos << pmaxrs.abs
+        pgreater += 1 if pmaxrs.abs >= maxrs
+        psum += pmaxrs.abs
+        plotfile.puts(([word+".rs."+pidx.to_s] + prsa).join(",")) if options[:plot_words]
+      end
+
+      pmean = psum.to_f/perms.size
+      pstd = 1#pmaxrs_pos.stddev
+      
+      #pnorm = @pmaxrs_pos.size >= 3 ? r.shapiro_test(@pmaxrs_pos)['p.value'].to_s(1) : nil # test of normality
+      #extra_stat = [pmean.to_s(1),pstd.to_s(1)]
+      
+      #Because the word zscore distr. can be quite different,
+      # we compute the deviation from the mean of the absolute dist.
+      # The permuted maxRS should be normally distr. (sum of random numbers)
+      # gsea normalizes by x/pmean
+      pfdrz += pmaxrs_pos.map{|x| (x-pmean)/pstd}
+      
+      #pvalue and fdr statistic for word is also computed based on abs. dist.
+      pval = (pgreater+1.0)/(pmaxrs_pos.size+1)
+      zsc = (maxrs-pmean)/pstd
+      
+      plotfile.close if options[:plot_words]
+      report << [word,maxrs,zsc,pval,nil,leading_edge]

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+jruby --server --fast -J-Xmx4096m `dirname $0`/../src/cwords_mkdb.rb $*

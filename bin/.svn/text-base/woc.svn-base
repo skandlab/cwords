@@ -1,0 +1,3 @@
+#!/bin/bash
+jruby --fast -J-Xmx4096m -J-Xms4096m -J-Xmn1024m `dirname $0`/../src/woc.rb $*
+# --fast and --1.9 mutual excl.
