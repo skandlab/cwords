@@ -1,0 +1,115 @@
+1. COPYRIGHT
+
+Copyright (c) 2010, Anders Jacobsen. All rights reserved.
+
+
+
+2. DISCLAIMER
+
+THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+
+3. LICENSE
+
+Open Source, details to be decided ...
+
+
+
+4. BUNDLED LIBRARIES
+
+* Progressbar : Open source, Ruby license, http://www.ruby-lang.org/en/about/license.txt
+* UShuffle    : http://digital.cs.usu.edu/~mjiang/ushuffle/, Open source FreeBSD license
+                Copyright (c) 2007, Minghui Jiang, James Anderson, Joel Gillespie, and Martin Mayne.
+
+
+
+5. REQUIREMENTS
+
+All software components require Ruby (>=1.8.6, http://www.ruby-lang.org/) and JRuby (>=1.4.0, http://jruby.org/).
+The software has only been tested on a Unix platform.
+
+
+
+6. USAGE
+
+The software can be used to measure correlations of short nucleotide sequences ('words') and i.e. expression changes in a given experiment. In summary, it produces a statistic that a given word is overrepresented near the extremity of a ranked list of sequences. Below is a short summary of how to use the software. The full set of options for each script can be be listed from the command line by using the '--help' flag.
+
+The software can compute word correlations with (scenario 1 below) or without (scenario 2) the use of a precomputed word database. The advantage of using the precomputed word database is i) sequences are processed only when constructing the word database and ii) lower memory usage. 
+
+## Scenario 1, A: Preparing a word database
+
+First, a word database is computed from a sequence file, i.e. 3'UTR sequences. I.e. assuming that the current directory is the base directory of this software library:
+
+woc_mkdb.rb -w 4,5 -s hsa_3utrs.fa -p 8 --bg 2
+
+This commands computes over representation of all 4 and 5-mers ('-w 4,5') in all sequences relative to a di-nucleotide sequence background model ('--bg 2'). Any higher-order sequence background model can be used ('--bg'), however it is recommended not to use a background order higher than tri-nucleotides for shorter sequences (such as 3'UTRs).
+This command is computationally very intensive (scaling appr. linearly with word length and number of shuffles used for background model). It is therefore highly recommended that the analysis is carried in parallel using the '-p' option, specifying the number of processes to be used.
+The result of the above command is a word database that is created in the db/ sub-directory. In the above example the database is named 'hsa_3utr_bg2'
+
+## Scenario 1, B: Correlation analysis using a precomputed word database
+
+The subsequent correlation analysis now uses this pre-computed word database:
+
+woc --db hsa_3utr_bg2 1 -w 4,5 -p 100 -r gene_expression_ranks.rnk
+
+The '.rnk' file is a tab-delimited file with a gene identifier (matching identifiers in the sequence file) and a rank metric (i.e. expression change in a given experiment). Correlations are computed relative to permutations of the ranked gene list ('-p' option).
+
+The final output of this analysis produces a summary of the top correlating words (a list for each end of the ranked list), i.e. words over-represented in beginning of list:
+
+Top 10 words
+rank      word      RS        z-score   p-value   fdr       ledge
+1         ttatc     13.92     4.00      2.00e-03  7.94e-01  449
+2         atccc     12.79     3.78      3.99e-03  6.59e-01  417
+3         gtaatc    8.24      3.75      2.00e-03  5.01e-01  280
+4         gtgaaa    6.77      3.68      5.99e-03  4.56e-01  137
+5         cctat     10.26     3.61      3.99e-03  4.45e-01  384
+6         tttatc    11.93     3.59      3.99e-03  3.88e-01  449
+...
+
+The 'z-score' is a correlation statistic for the given word after correction for correlations obtained from random gene list orderings. The 'fdr' (false discovery rate) is the estimated proportion of false discoveries for the given z-score threshold. Finally, 'ledge' is the leading-edge which denotes the position in the gene list where the maximum imbalance was measured; genes before this threshold are relatively enriched for the word compared to genes after the threshold.
+
+## Scenario 2, On-line correlation analysis
+
+The program can perform correlation analysis on-line without the use of a word database. A sequence file is specified using the (-s) flag. 
+
+# binary scoring, presence/absence of word
+/home/andersbj/woc/bin/woc -u 0 -w 5,6 -x -r seqweight.rnk -s seqs.fa -p 50 -c bin
+
+# scoring by number of word occurrences
+/home/andersbj/woc/bin/woc -u 0 -w 5,6 -x -r seqweight.rnk -s seqs.fa -p 50 -c obs
+
+Background correction, this is much slower (hours!). If your sequences are long (>500) or you repeatedly analyze the same set of sequences, it is better to first compute a word database for the set of sequences that can be reused (I have another script for this task if it is needed). Observed word occurrences are now measured relative to word occurrences in shuffled sequences.
+
+# Mono-nucleotide dependency model
+/home/andersbj/woc/bin/woc -u 0 -w 5,6 -x -r seqweight.rnk -s seqs.fa -p 50 -q 50 -c pval -b 1
+
+# Di-nucleotide model
+/home/andersbj/woc/bin/woc -u 0 -w 5,6 -x -r seqweight.rnk -s seqs.fa -p 50 -q 50 -c pval -b 2
+
+Explanation of some of the parameters
+
+-x : rank all sequences together
+-w : word lengths (comma separated), it is not recommended to go >7
+-r : rank file, each line consists of sequence id and weight (i.e. expression change) separated by tabs. 
+-s : sequence file, fasta format, id's must match rank file
+-q : number of sequence shuffles when using sequence background correction (-c 'pval', default)
+-u : -u 0, specifies that results for all words are dumped in a file 
+-b :  background nucleotide dependency model
+
+Caution: The number of permutations (-p), sequence shuffles (-q) and word length (-w) have a significant impact on the running time, but if you can wait try higher values.
+
+## Concurrency 
+
+The program has an option (-t) to specify the number of threads that should be enabled. In a multi-core environment the running time will decrease almost linearly with the number of enabled threads. 
+
+## Scripts for additional follow-up analysis.
+
+The 'misc/' directory includes two scripts for follow-up analysis of the word correlations.
+
+cluster_words.rb:
+Given the output from 'wordsrus', this script clusters the top correlating words based on a number of different parameters (see '--help' option).
+
+complementary_words.rb:
+Computes the top correlating words that are complementary to a reference sequence (i.e. a mature miRNA sequence). Calculates the number of complementary words for each position of the sequence and compares to random and shuffled sequences.
+
