@@ -6,10 +6,19 @@ Cwords is a software tool that measure correlations of short oligonucleotide seq
 All software components require Ruby (>=1.8.6, http://www.ruby-lang.org/) and JRuby (>=1.4.0, http://jruby.org/).
 The software has only been tested on a Unix platform.
 
-The following Ruby gems are required (install with JRuby gem command)
 
-* jgem install progressbar
-* jgem install schleyfox-peach --source=http://gems.github.com
+2. INSTALL
+
+* Install Ruby (www.ruby-lang.org, check if it is already installed: 'ruby -v')
+* Install Java (www.java.com, check if it is already installed: 'java -version'),
+* Install JRruby (www.jruby.org, check if it is already installed: 'jruby -v'),
+  make sure that you have the 'jruby' command in your path.
+* Install Rubygems (www.rubygems.org, check if it is already installed: 'gem -v')
+
+* And finally, install cwords:
+
+> gem install cwords
+> cwords --help
 
 2. USAGE
 

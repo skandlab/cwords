@@ -1,3 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env ruby
 
-jruby --server --fast -J-Xmx4096m `dirname $0`/../src/cwords.rb $*
+scriptdir = File.dirname(__FILE__) + "/../scripts/"
+
+helps = ARGV.join(" ").match(/--help/)
+if (helps) 
+  # start lightweight
+  exec "jruby --client " + scriptdir + "cwords.rb " + ARGV.join(" ")
+end
+
+mems = ARGV.join(" ").match(/M=(\w+)/)
+mem = mems ? mems[1] : '4096m'
+argv = ARGV.select{|x| not x=~ /^M=\w+$/}.join(' ')
+puts "Starting cwords with max heap size " + mem + " ...\n"
+
+cmd = "jruby --server --fast -J-Xmx#{mem} " + scriptdir + "cwords.rb " + argv
+exec cmd

@@ -1,11 +1,12 @@
-#!/usr/bin/ruby
+#!/usr/bin/env jruby
 
 srcdir = File.dirname(__FILE__)
-basedir = srcdir + "../"
+basedir = srcdir + "/../"
 libdir = basedir + 'lib/'
 $LOAD_PATH << libdir
 
 require 'wordRS-lib.rb'
+require 'rubygems'
 require 'progressbar'
 require 'optparse'
 require 'fileutils'
@@ -42,7 +43,14 @@ def show_help(msg="", code=0, io=STDOUT)
   exit(code)
 end
 
-$coptions.parse!(ARGV)
+begin
+  $coptions.parse!(ARGV)
+rescue OptionParser::ParseError => error
+  puts error.message
+  puts $coptions
+  exit
+end
+
 #mandatory parameters
 [:seqfile].each{  |p| show_help("option '#{p}' mandatory") if options[p].nil?}
 
