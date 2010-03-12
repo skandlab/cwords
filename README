@@ -15,7 +15,7 @@ The software has only been tested on a Unix platform.
   make sure that you have the 'jruby' command in your path.
 * Install Rubygems (www.rubygems.org, check if it is already installed: 'gem -v')
 
-* And finally, install cwords:
+* And finally, install cwords (http://rubygems.org/gems/cwords):
 
 > gem install cwords
 > cwords --help
