@@ -5,8 +5,8 @@ class Array
   def threach(n = 1, &b)
     return [] if n == 0 or size == 0
     result = Array.new(size)
+    self.send(:each,&b) if n == 1
     
-    n ||= 1
     n = [n,size].min
     
     part_size, part_remainder = size/n, size % n
