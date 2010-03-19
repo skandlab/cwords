@@ -9,7 +9,6 @@ require 'wordRS-lib.rb'
 require 'rubygems'
 require 'progressbar'
 require 'optparse'
-require 'peach'
 require 'java'
 require libdir + 'ushuffle.jar'
 java_import 'UShuffle'
@@ -188,7 +187,7 @@ if sequences
   puts "\n>> Enumerating words in sequences"
   wordscores = Array.new(all.size) {Array.new(wids.size,0)} # {Java::short[wids.size].new}
   pbar = ProgressBar.new("progress",sequences.size)
-  all.peach(threads) do |seqid,val|
+  all.threach(threads) do |seqid,val|
     us = UShuffle.new
     seq=sequences[seqid]
     seqidx=allorder[seqid]
@@ -286,7 +285,7 @@ analyze.each do |set,nm|
   options[:permutations].times{|i| perms << (0..set.size-1).to_a.shuffle}
   
   pbar = ProgressBar.new("progress",nwords)
-  wids.to_a.sort_by{|x| x[1]}.peach(threads) do |word,wid|
+  wids.to_a.sort_by{|x| x[1]}.threach(threads) do |word,wid|
     pbar.inc
     next if options[:onlyanno] and not word_annotation.key?(word) #only process annotated words
     next if options[:plot_words] and !options[:plot_words].include?(word)

@@ -1,6 +1,44 @@
 
 class Array
+  
+  # threaded each
+  def threach(n = 1, &b)
+    return [] if n == 0 or size == 0
+    result = Array.new(size)
+    
+    n ||= 1
+    n = [n,size].min
+    
+    part_size, part_remainder = size/n, size % n
+    threads = []
 
+    pstart = 0
+    n.times do |pi|
+      pend = pstart + part_size - 1
+      pend += 1 if pi<part_remainder
+      threads << Thread.new(pstart,pend) do |a,b|
+        for j in a..b
+          yield(slice(j))
+        end
+      end
+      pstart = pend+1
+    end
+    
+    threads.each { |t| t.join }
+    self
+  end
+  
+  # unit tests for threach
+  #Array.send(:include, Threach)
+  #a=(0..4).to_a
+  #res = a.map{|x| x*10}
+  #a.size.times do |pn|
+  #  b=Array.new(a.size)
+  #  a.threach(pn+1) {|x| b[x]=x*10}
+  #  puts b == beach
+  #end
+
+  
   def shuffle()
     arr = self.dup
     arr.size.downto 2 do |j|

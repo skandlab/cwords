@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'cwords'
-  s.version = '0.1.8'
+  s.version = '0.1.9'
   s.date = '2010-03-12'
   s.authors = ['Anders Jacobsen']
   s.email = 'andersmbj@gmail.com'
@@ -8,9 +8,7 @@ Gem::Specification.new do |s|
   s.description = 'Word correlation analysis in ranked nucleotide sequences (bioinformatics)'
   s.homepage = 'https://github.com/andersjacobsen/cWords/'
   s.files = ['README', 'LICENSE', 'bin/cwords', 'bin/cwords_mkdb', 'lib/ushuffle.jar', 'lib/wordRS-lib.rb', 'resources/genemap.tsv', 'resources/word_annotation.tsv', 'scripts/cwords.rb','scripts/cwords_mkdb.rb','scripts/cluster_words.rb', 'scripts/complementary_words.rb']
-  s.platform = 'jruby'
   s.executables = ['cwords','cwords_mkdb']
   s.default_executable = ['bin/cwords']
   s.add_dependency('progressbar','>= 0.9.0')
-  s.add_dependency('peach','>= 0.2.0')
 end
