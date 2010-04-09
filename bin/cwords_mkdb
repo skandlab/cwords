@@ -1,16 +1,6 @@
 #!/usr/bin/env ruby
 scriptdir = File.dirname(__FILE__) + "/../scripts/"
 
-helps = ARGV.join(" ").match(/--help/)
-if (helps) 
-  # start lightweight
-  exec "jruby --client " + scriptdir + "cwords_mkdb.rb " + ARGV.join(" ")
-end
-
-mems = ARGV.join(" ").match(/M=(\w+)/)
-mem = mems ? mems[1] : '4096m'
-argv = ARGV.select{|x| not x=~ /^M=\w+$/}.join(' ')
-puts "Starting cwords_mkdb with max heap size " + mem + " ...\n"
-
-cmd = "jruby --server --fast -J-Xmx#{mem} " + scriptdir + "cwords_mkdb.rb " + argv
+argv = ARGV.join(" ")
+cmd = "ruby " + scriptdir + "cwords_mkdb.rb " + argv
 exec cmd

@@ -1,10 +1,11 @@
 
 srcdir = File.dirname(__FILE__)
-basedir = srcdir + "../"
+basedir = srcdir + "/../"
 libdir = basedir + 'lib/'
 $LOAD_PATH << libdir
 
 require 'wordRS-lib.rb'
+require 'rubygems'
 require 'progressbar'
 require 'optparse'
 require 'fileutils'

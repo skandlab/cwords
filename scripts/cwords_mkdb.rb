@@ -1,4 +1,4 @@
-#!/usr/bin/env jruby
+#!/usr/bin/env ruby
 
 srcdir = File.dirname(__FILE__)
 basedir = srcdir + "/../"
@@ -25,13 +25,13 @@ options[:seqfile] = nil
 options[:partitions] = 1
 options[:stats] = ['p'] # p=p
 options[:ruby]='jruby --fast -J-Xmx1024m'
-options[:shuffles]=5000
+options[:shuffles]=500
 options[:bg]=1 #mononucleotide shuffling
 
 $coptions = OptionParser.new do |opts|
   opts.on("-w", "--wordsize ARG", "wordsize") { |o| options[:wordsize] = o.split(",").map{|x| x.to_i}}
   opts.on("-s", "--seqfile ARG", "sequence file") {|o| options[:seqfile] = o}
-  opts.on("-p", "--partitions ARG", "number of sequence partitions") {|o| options[:partitions] = o.to_i}
+  opts.on("-t", "--threads ARG", "number of concurrent processes") {|o| options[:partitions] = o.to_i}
   opts.on("-a", "--stats ARG", "sequence file") {|o| options[:stats] = o.split('')}
   opts.on("-u", "--shuffle ARG", "number of shuffles") {|o| options[:shuffles] = o.to_i}
   opts.on("--ruby ARG", "ruby interpreter") {|o| options[:ruby] = o}
@@ -72,7 +72,7 @@ end
       
 puts "starting #{n} processes ..."
 
-cmd = "#{options[:ruby]} #{basedir}/scripts/wordsrus_mkdb.rb"
+cmd = "#{options[:ruby]} #{basedir}/scripts/cwords_mkdb_worker.rb"
 cmd += " -w #{options[:wordsize].join(',')} -s #{options[:seqfile]} -a #{options[:stats].join(",")} -u #{options[:shuffles]} --bg #{options[:bg]}"
 
 stamp = Time.now.to_i
