@@ -10,6 +10,7 @@ require 'rubygems'
 require 'progressbar'
 require 'optparse'
 require 'java'
+require 'pp'
 require libdir + 'ushuffle.jar'
 java_import 'UShuffle'
 
@@ -82,7 +83,7 @@ end
 # mandatory parameters
 [:rankfile].each{|p| show_help("option '#{p}' mandatory") if options[p].nil?}
 show_help("db or seqfile required") if !(options[:db] or options[:seqfile])
-show_help("scoring scheme must be one of: obs,bin,pval") if !(['obs','bin','pval'].include?(options[:scoring_scheme]))
+show_help("scoring scheme must be one of: obs,bin,pval") if !(['obs','bin','pval','pval2'].include?(options[:scoring_scheme]))
 
 testing = options[:testing]
 
@@ -100,6 +101,7 @@ sequences = nil
 nwords = options[:wordsize].map{|x| 4**x}.to_statarray.sum
 bg=options[:bg] # TODO, make option
 threads=options[:threads]
+nperms=options[:permutations]
 
 ###
 ### Main program
@@ -115,19 +117,27 @@ IO.readlines(annofile).each{|l| word_annotation[l.split("\t")[0]] = l.split("\t"
 # read optional sequences
 if options[:seqfile]
   puts "\n>> reading sequences ..."
-  sequences = Hash.new
-  IO.readlines(options[:seqfile],">")[1..-1].each do |entry|
-    ls = entry.split("\n").map{|x| x.chomp}
-    # hash ensures sequence ids unique
-    sequences[ls[0]] = ls[1..-2].join('').downcase.gsub('u','t') # last field is ">"
-  end
+  sequences = Hash.new # id => seq
+  IO.readlines(options[:seqfile],">")[1..-1].each do  |s|
+    ff = s.split("\n").map{|x| x.chomp}
+    id = ff.shift
+    seq = ff[0..-2].join('').downcase.gsub('u','t')
+    seq += ff[-1] if ff[-1] != '>' # check if last field is ">"
+    # next if not nucleotide sequence, i.e. "unavailable"
+    next if (seq.split('').uniq - ['a','c','g','t']).size > 0
+    next if seq.size < 50 # lower bound
+    # hash ensures sequence ids are unique
+    sequences[id] = seq
+  end  
   seqshuffles = options[:seqshuffles]
 end
 
 # initialize word id hash, word sequence => word id (0..nwords-1)
 wids = Hash.new
-i = 0
-options[:wordsize].each{|ws| ['a','g','c','t'].rep_perm(ws) {|seqa| wids[seqa.join('')]=i ; i+=1 }}
+begin
+  wi = 0
+  options[:wordsize].each{|ws| ['a','g','c','t'].rep_perm(ws) {|seqa| wids[seqa.join('')]=wi ; wi+=1 }}
+end
 
 ###
 ### ID mapping
@@ -277,22 +287,26 @@ analyze.each do |set,nm|
   perms = []
   report = []
   pfdrz = []
-  
+
+  report = Array.new(nwords)
+  pfdrz = Array.new(nwords*nperms)
+
   franks = Hash.new # tid => index in set
   set.each_with_index{|x,i| franks[x[0]] = i}
   
   puts "permuting #{options[:permutations]} times ...\n"
-  options[:permutations].times{|i| perms << (0..set.size-1).to_a.shuffle}
+  nperms.times{|i| perms << (0..set.size-1).to_a.shuffle}
   
   pbar = ProgressBar.new("progress",nwords)
-  wids.to_a.sort_by{|x| x[1]}.threach(threads) do |word,wid|
+
+  wids.to_a.threach(threads) do |word,wid|
     pbar.inc
     next if options[:onlyanno] and not word_annotation.key?(word) #only process annotated words
     next if options[:plot_words] and !options[:plot_words].include?(word)
     
     plotfile = File.new(rankfilename + ".#{word}.#{nm}.csv","w") if options[:plot_words]
-    
-    score = Array.new(ngenes) # scores ordered by fold change
+        
+    score = Array.new(ngenes,0) # scores ordered by fold change
     
     if sequences
       score = set.map{|x| wordscores[allorder[x[0]]][wid]}
@@ -303,16 +317,20 @@ analyze.each do |set,nm|
       when "bin" then wordcounts.each{|id,obs,gte_obs,exp| score[franks[id]] = obs.to_i == 0 ? -1 : 1}
       when "obs" then wordcounts.each{|id,obs,gte_obs,exp| score[franks[id]] = obs.to_f}
       when "pval" then wordcounts.each{|id,obs,gte_obs,exp| score[franks[id]] = -Math.log((gte_obs.to_f+1)/(seqshuffles+1.0))}
+      when "pval2" then wordcounts.each{|id,obs,gte_obs,exp| score[franks[id]] = gte_obs.to_f}
       end
     end
     
+    # center scores
     smean = score.to_statarray.mean
+    score.map!{|x| x-smean}
+    
     maxrs = 0
     leading_edge = 0
     rs = 0 #running sum
     rsa = [0]
     score.each_with_index do |x,i|
-      rs += (x-smean)
+      rs += x
       rsa << rs
       if rs.abs > maxrs.abs
         maxrs = rs
@@ -333,7 +351,7 @@ analyze.each do |set,nm|
       prsa = [0]
       pmaxrs = 0
       psa.each do |i|
-        prs += score[i]-smean
+        prs += score[i]
         prsa << prs
         pmaxrs = prs if prs.abs > pmaxrs.abs
       end
@@ -348,14 +366,12 @@ analyze.each do |set,nm|
     #Because the word zscore distr. can be quite different,
     # we compute the deviation from the mean of the absolute dist.
     # The permuted maxRS should be normally distr. (sum of random numbers)
-    pfdrz += pmaxrs_pos.map{|x| (x-pmean)/pstd}
-    
-    #pvalue and fdr statistic for word is also computed based on abs. dist.
-    pval = (pmaxrs_pos.select{|x| x>=maxrs}.size+1.0)/(pmaxrs_pos.size+1)
+    poffset = wid*nperms
+    pmaxrs_pos.map{|x| (x-pmean)/pstd}.each_with_index{|v,j| pfdrz[poffset+j] = v}
+
     zsc = (maxrs-pmean)/pstd
-    
     plotfile.close if options[:plot_words]
-    report << [wid,zsc,pval,nil,leading_edge]
+    report[wid] = [wid,zsc,nil,leading_edge]
     
   end # wordsize
   pbar.finish
@@ -363,31 +379,31 @@ analyze.each do |set,nm|
   ###
   ### FDR
   ###
-
-  puts "fdr calculation ..."
-  fdrrank = pfdrz.map{|x| [x,nil]} # [zscore,word_report_index]
-  report.each_with_index{|x,idx| fdrrank << [x[1],idx]}
-  fdrrank = fdrrank.sort_by{|x| x[0]}.reverse # sort high zscore to low zscore
-  nfp = pfdrz.size.to_f
-  ntp = report.size.to_f
-  word_fdrrank = Hash.new()
-  ifp = 0
-  itp = 0
-  fdrrank.each do |zsc,idx|
-    if idx.nil?
-      ifp += 1
-    else
-      itp += 1
-      fpr = ifp/nfp
-      tpr = itp/ntp
-      report[idx][3] = fpr/tpr
-    end
-  end
   
-  cutoff_fdr = [0.001,0.005,0.01,0.05,0.1,0.15,0.2,0.25,0.5]
-  puts ""
-  puts (["fdr <="] + cutoff_fdr.map{|x| x.to_s(3)} + ["total"]).join("\t")
-  puts (["count"] + cutoff_fdr.map{|x| report.select{|y| y[3] <= x}.size} + [report.size]).join("\t")
+  begin
+    puts "\n>> Estimating FDR ..."
+    report.compact! # remove nil entries
+    pfdrz.compact!
+    fdrrank = pfdrz.map{|x| [x,nil]} # [zscore,word_report_index]
+    report.each_with_index{|x,idx| fdrrank << [x[1],idx]}
+    fdrrank = fdrrank.sort_by{|x| x[0]}.reverse # sort high zscore to low zscore
+    nfp, ntp = pfdrz.size.to_f, report.size.to_f
+    ifp, itp = 0, 0
+    fdrrank.each do |zsc,idx|
+      if idx.nil?
+        ifp += 1
+      else
+        itp += 1
+        fpr, tpr = ifp/nfp, itp/ntp
+        report[idx][2] = fpr/tpr
+      end
+    end
+    
+    cutoff_fdr = [0.001,0.005,0.01,0.05,0.1,0.15,0.2,0.25,0.5]
+    puts ""
+    puts (["FDR <="] + cutoff_fdr.map{|x| x.to_s(3)} + ["total"]).join("\t")
+    puts (["count"] + cutoff_fdr.map{|x| report.select{|y| y[2] <= x}.size} + [report.size]).join("\t")
+  end
 
   ###
   ### Output summarization
@@ -396,19 +412,19 @@ analyze.each do |set,nm|
   wids2 = wids.invert
   report = report.sort_by{|x| x[1]}.reverse
   puts "\nTop #{output_top} words"
-  puts ['rank','word','z-score','p-value','fdr','ledge','annotation'].map{|x| sprintf("%-10s",x)}.join('')
+  puts ['rank','word','z-score','fdr','ledge','annotation'].map{|x| sprintf("%-10s",x)}.join('')
   report[0,output_top].each_with_index do |r,i|
     wd = wids2[r[0]]
-    s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_e(2),r[4].to_s,word_annotation[wd]]
+    s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_s,word_annotation[wd]]
     puts s.map{|x| sprintf("%-10s",x)}.join('')
   end
 
   if options[:report_words]
     puts "......"
     report.each_with_index do |r,i|
-      if options[:report_words].include?(r[0]) # and i > output_top
+      if options[:report_words].include?(r[0])
         wd = wids2[r[0]]
-        s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_e(2),r[4].to_s,word_annotation[wd]]
+        s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_s,word_annotation[wd]]
         puts s.map{|x| sprintf("%-10s",x)}.join('')
       end
     end
@@ -417,11 +433,11 @@ analyze.each do |set,nm|
   if options[:dump]
     fname = rankfilename + ".#{nm}." + options[:dump].to_s 
     of = File.new(fname,"w")
-    of.puts ['rank','word','z-score','p-value','fdr','ledge','GS size','annotation'].map{|x| sprintf("%-10s",x)}.join('')
+    of.puts ['rank','word','z-score','fdr','ledge','annotation'].map{|x| sprintf("%-10s",x)}.join('')
     puts "dumping top #{options[:dump]} words in file: #{fname}"
     report[0..options[:dump]-1].each_with_index do |r,i|
       wd = wids2[r[0]]
-      s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_e(2),r[4].to_s,word_annotation[wd]]
+      s = [i+1,wd,r[1].to_s(2),r[2].to_e(2),r[3].to_s,word_annotation[wd]]
       of.puts s.map{|x| sprintf("%-10s",x)}.join('')
     end
   end

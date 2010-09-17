@@ -6,9 +6,12 @@
 ###
 
 srcdir = File.dirname(__FILE__)
-$LOAD_PATH << srcdir + '/../lib/'
+basedir = srcdir + "/../"
+libdir = basedir + '/lib/'
+$LOAD_PATH << libdir
 
 require 'wordRS-lib.rb'
+require 'rubygems'
 require 'progressbar'
 require 'optparse'
 require 'pp'
@@ -324,6 +327,9 @@ end
 ### Main
 ###
 
+puts ">> Parameters"
+options.each{|k,v| puts sprintf("%-20s:  %s",k,v) if !v.nil?}
+
 aw = Hash.new()
 if options[:fdr]
   IO.readlines(options[:wordfile]).select{|x| x.split(' ')[5].to_f < options[:fdr]}[0,options[:top]+1][1..-1].each_with_index do |wline,idx|
@@ -387,7 +393,7 @@ end
 #pp clusters.select{|x| x.size > 2}
 #pp clusters
 wa = aw.invert
-resc = clusters.select{|x| x.size >= 3}
+resc = clusters.select{|x| x.size >= 3} #2
 resc.each{|cl| print_cluster(cl,wa);puts "\n"}
 
 puts "Found #{resc.size} word clusters."
