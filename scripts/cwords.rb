@@ -29,7 +29,7 @@ options[:plot_words]=nil
 options[:onlyanno]=nil
 options[:dump]=nil
 options[:testing]=nil
-options[:rank_all]=nil
+options[:rank_all]=true
 options[:rank_inverse]=nil
 options[:rank_split_median]=nil
 options[:rank_abs]=nil
@@ -50,7 +50,7 @@ $coptions = OptionParser.new do |opts|
   opts.on(      "--onlyanno", "only process annotated (i.e. mirbase) words") {|o| options[:onlyanno] = true}
   
   # rank control
-  opts.on("-x", "--rank_all", "do not split positive and neg. values") {|o| options[:rank_all] = true}
+  opts.on("-x", "--rank_split", "analyze positive and neg. values separetely") {|o| options[:rank_all] = false}
   opts.on("-m", "--rank_split_median", "split ranked list at median") {|o| options[:rank_split_median] = true}
   opts.on("-i", "--rank_inverse", "inverse all ranked lists") {|o| options[:rank_inverse] = true}
   opts.on("-a", "--rank_abs", "rank by absolute value") {|o| options[:rank_abs] = true}
@@ -107,6 +107,7 @@ nperms=options[:permutations]
 ### Main program
 ###
 
+puts ">> Analysis date: " + Time.now.to_s
 puts ">> Parameters"
 options.each{|k,v| puts sprintf("%-20s:  %s",k,v) if !v.nil?}
 
@@ -216,7 +217,7 @@ if sequences
         seqsh = us.shuffle
         expected = Array.new(wids.size,0)
         options[:wordsize].each{|ws| (0..seqsize-ws).each{|i| wid = wids[seqsh[i, ws]]; expected[wid] += 1 if !wid.nil?}}
-        observed.each_with_index{|x,widx| wordscores[seqidx][widx] =+ 1 if expected[widx]>=x}
+        observed.each_with_index{|x,widx| wordscores[seqidx][widx] += 1 if expected[widx]>=x}
       end
     end
   end
@@ -359,7 +360,7 @@ analyze.each do |set,nm|
       pmaxrs_pos << pmaxrs.abs
       plotfile.puts(([word+".rs."+pidx.to_s] + prsa).join(",")) if options[:plot_words]
     end
-    
+        
     pmean = pmaxrs_pos.mean
     pstd = pmaxrs_pos.stddev
     
@@ -372,7 +373,7 @@ analyze.each do |set,nm|
     zsc = (maxrs-pmean)/pstd
     plotfile.close if options[:plot_words]
     report[wid] = [wid,zsc,nil,leading_edge]
-    
+        
   end # wordsize
   pbar.finish
   
@@ -386,7 +387,7 @@ analyze.each do |set,nm|
     pfdrz.compact!
     fdrrank = pfdrz.map{|x| [x,nil]} # [zscore,word_report_index]
     report.each_with_index{|x,idx| fdrrank << [x[1],idx]}
-    fdrrank = fdrrank.sort_by{|x| x[0]}.reverse # sort high zscore to low zscore
+    fdrrank = fdrrank.sort_by{|x| x[0].to_f}.reverse # sort high zscore to low zscore
     nfp, ntp = pfdrz.size.to_f, report.size.to_f
     ifp, itp = 0, 0
     fdrrank.each do |zsc,idx|

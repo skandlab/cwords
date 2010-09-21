@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name = 'cwords'
-  s.version = '0.1.11'
-  s.date = '2010-04-09'
+  s.version = '0.1.14'
+  s.date = '2010-09-21'
   s.authors = ['Anders Jacobsen']
   s.email = 'andersmbj@gmail.com'
   s.summary = 'Word correlation analysis'
